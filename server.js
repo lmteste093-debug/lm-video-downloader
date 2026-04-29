@@ -18,34 +18,32 @@ if (!fs.existsSync(DOWNLOADS_DIR)) {
     fs.mkdirSync(DOWNLOADS_DIR, { recursive: true });
 }
 
-// ============================================================
-// ALTERAÇÃO 1: QUALITY_MAP atualizado para forçar combinação de vídeo+áudio no 720p
-// ============================================================
+// Mapeamento de qualidades
 const QUALITY_MAP = {
     '4K': 'bestvideo[height<=2160]+bestaudio/best[height<=2160]',
     '1080p': 'bestvideo[height<=1080]+bestaudio/best[height<=1080]',
-    '720p': 'bestvideo[height<=720]+bestaudio/best',  // <-- ALTERADO: agora combina vídeo (até 720p) + áudio
+    '720p': 'bestvideo[height<=720]+bestaudio/best',
     '480p': 'best[height<=480]',
     '360p': 'best[height<=360]',
     'mp3': 'bestaudio'
 };
 
-// Cache de cookies (evita escrever arquivo a cada requisição)
+// Cache de cookies
 let cachedInstagramCookies = null;
 let cachedFacebookCookies = null;
 
 // ============================================================
-// ALTERAÇÃO 2: buildOptimizedCommand COM REMOÇÃO DO -f para Instagram
+// FUNÇÃO PRINCIPAL - COMANDOS OTIMIZADOS POR PLATAFORMA
 // ============================================================
 function buildOptimizedCommand(plataforma, url, format, filepath, qualidade) {
     const baseOptions = `--no-cache-dir --rm-cache-dir --limit-rate 2M --retries 5 --fragment-retries 5`;
     
     switch(plataforma) {
         case 'tiktok':
-            return `yt-dlp ${baseOptions} --impersonate chrome-131 -f "${format}" --merge-output-format mp4 -o "${filepath}" "${url}"`;
+            return `yt-dlp ${baseOptions} -f "${format}" --merge-output-format mp4 -o "${filepath}" "${url}"`;
             
         case 'facebook':
-            return `yt-dlp ${baseOptions} --impersonate chrome-116 -f "${format}" --merge-output-format mp4 -o "${filepath}" "${url}"`;
+            return `yt-dlp ${baseOptions} -f "${format}" --merge-output-format mp4 -o "${filepath}" "${url}"`;
             
         case 'youtube':
             const youtubeOptions = qualidade === '720p' ? '-f "best[height<=720]"' : `-f "${format}"`;
@@ -59,9 +57,6 @@ function buildOptimizedCommand(plataforma, url, format, filepath, qualidade) {
                 }
             }
             const cookieOpt = cachedInstagramCookies ? '--cookies "/tmp/ig_cookies.txt"' : '';
-            // ============================================================
-            // ALTERAÇÃO 3: REMOVIDO o -f "${format}" - o yt-dlp agora escolhe o melhor formato automaticamente
-            // ============================================================
             return `yt-dlp ${baseOptions} ${cookieOpt} --add-header "Referer:https://www.instagram.com/" --merge-output-format mp4 -o "${filepath}" "${url}"`;
             
         default:
@@ -338,7 +333,7 @@ app.get('/', (req, res) => {
     `);
 });
 
-// API de download otimizada
+// API de download
 app.post('/api/download', async (req, res) => {
     const { url, qualidade } = req.body;
     
@@ -375,7 +370,7 @@ app.post('/api/download', async (req, res) => {
         const format = isAudio ? 'bestaudio' : (QUALITY_MAP[qualidade] || QUALITY_MAP['720p']);
         const command = buildOptimizedCommand(plataforma, url, format, filepath, qualidade);
         
-        console.log(`🔄 Executando comando: ${command.substring(0, 200)}...`);
+        console.log(`🔄 Executando comando...`);
         await execPromise(command);
         
         if (!fs.existsSync(filepath)) throw new Error('Arquivo não foi criado');
@@ -405,11 +400,12 @@ app.post('/api/download', async (req, res) => {
 });
 
 app.use('/downloads', express.static(DOWNLOADS_DIR));
+
 app.listen(PORT, '0.0.0.0', () => {
     console.log('');
     console.log('══════════════════════════════════════════════');
     console.log('🚀 LM VIDEO DOWNLOADER OTIMIZADO!');
-    console.log(`📱 Acesse: http://0.0.0.0:${PORT}`);
+    console.log(`📱 Acesse: http://localhost:${PORT}`);  // <-- MUDAR AQUI
     console.log('📹 Suporta: Instagram | TikTok | Facebook | YouTube');
     console.log('⚡ Otimizado para Fly.io');
     console.log('══════════════════════════════════════════════');
