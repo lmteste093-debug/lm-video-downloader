@@ -18,11 +18,13 @@ if (!fs.existsSync(DOWNLOADS_DIR)) {
     fs.mkdirSync(DOWNLOADS_DIR, { recursive: true });
 }
 
-// Mapeamento de qualidades otimizado
+// ============================================================
+// ALTERAÇÃO 1: QUALITY_MAP atualizado para forçar combinação de vídeo+áudio no 720p
+// ============================================================
 const QUALITY_MAP = {
     '4K': 'bestvideo[height<=2160]+bestaudio/best[height<=2160]',
     '1080p': 'bestvideo[height<=1080]+bestaudio/best[height<=1080]',
-    '720p': 'best[height<=720]',
+    '720p': 'bestvideo[height<=720]+bestaudio/best',  // <-- ALTERADO: agora combina vídeo (até 720p) + áudio
     '480p': 'best[height<=480]',
     '360p': 'best[height<=360]',
     'mp3': 'bestaudio'
@@ -32,9 +34,10 @@ const QUALITY_MAP = {
 let cachedInstagramCookies = null;
 let cachedFacebookCookies = null;
 
-// Função para obter comando otimizado por plataforma
+// ============================================================
+// ALTERAÇÃO 2: buildOptimizedCommand COM REMOÇÃO DO -f para Instagram
+// ============================================================
 function buildOptimizedCommand(plataforma, url, format, filepath, qualidade) {
-    // Comandos base otimizados
     const baseOptions = `--no-cache-dir --rm-cache-dir --limit-rate 2M --retries 5 --fragment-retries 5`;
     
     switch(plataforma) {
@@ -45,7 +48,6 @@ function buildOptimizedCommand(plataforma, url, format, filepath, qualidade) {
             return `yt-dlp ${baseOptions} --impersonate chrome-116 -f "${format}" --merge-output-format mp4 -o "${filepath}" "${url}"`;
             
         case 'youtube':
-            // YouTube com opções específicas para evitar bloqueios
             const youtubeOptions = qualidade === '720p' ? '-f "best[height<=720]"' : `-f "${format}"`;
             return `yt-dlp ${baseOptions} --extractor-retries 10 --sleep-requests 2 --sleep-interval 3 --max-sleep-interval 10 ${youtubeOptions} --merge-output-format mp4 -o "${filepath}" "${url}"`;
             
@@ -57,7 +59,10 @@ function buildOptimizedCommand(plataforma, url, format, filepath, qualidade) {
                 }
             }
             const cookieOpt = cachedInstagramCookies ? '--cookies "/tmp/ig_cookies.txt"' : '';
-            return `yt-dlp ${baseOptions} ${cookieOpt} --add-header "Referer:https://www.instagram.com/" -f "${format}" --merge-output-format mp4 -o "${filepath}" "${url}"`;
+            // ============================================================
+            // ALTERAÇÃO 3: REMOVIDO o -f "${format}" - o yt-dlp agora escolhe o melhor formato automaticamente
+            // ============================================================
+            return `yt-dlp ${baseOptions} ${cookieOpt} --add-header "Referer:https://www.instagram.com/" --merge-output-format mp4 -o "${filepath}" "${url}"`;
             
         default:
             return `yt-dlp -f "best" -o "${filepath}" "${url}"`;
@@ -79,9 +84,9 @@ setInterval(() => {
             }
         });
     }
-}, 30 * 60 * 1000); // A cada 30 minutos
+}, 30 * 60 * 1000);
 
-// Interface HTML inline (evita arquivos extras)
+// Interface HTML
 app.get('/', (req, res) => {
     res.send(`
         <!DOCTYPE html>
@@ -370,7 +375,7 @@ app.post('/api/download', async (req, res) => {
         const format = isAudio ? 'bestaudio' : (QUALITY_MAP[qualidade] || QUALITY_MAP['720p']);
         const command = buildOptimizedCommand(plataforma, url, format, filepath, qualidade);
         
-        console.log(`🔄 Executando comando otimizado...`);
+        console.log(`🔄 Executando comando: ${command.substring(0, 200)}...`);
         await execPromise(command);
         
         if (!fs.existsSync(filepath)) throw new Error('Arquivo não foi criado');
@@ -400,14 +405,13 @@ app.post('/api/download', async (req, res) => {
 });
 
 app.use('/downloads', express.static(DOWNLOADS_DIR));
-
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
     console.log('');
     console.log('══════════════════════════════════════════════');
     console.log('🚀 LM VIDEO DOWNLOADER OTIMIZADO!');
-    console.log(`📱 Acesse: http://localhost:${PORT}`);
+    console.log(`📱 Acesse: http://0.0.0.0:${PORT}`);
     console.log('📹 Suporta: Instagram | TikTok | Facebook | YouTube');
-    console.log('⚡ Otimizado para Render (plano gratuito)');
+    console.log('⚡ Otimizado para Fly.io');
     console.log('══════════════════════════════════════════════');
     console.log('');
 });
